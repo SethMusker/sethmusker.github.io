@@ -1,0 +1,138 @@
+---
+title: "Hierarchical Universal Thermal Performance Curves"
+date: 2025-11-16
+categories: []
+tags: []
+output:
+  md_document:
+    variant: gfm
+    preserve_yaml: true
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(fig.path = '../assets/img/2025-11-16-hierarchical-universal-thermal-performance-curves/', fig.width = 6, fig.height = 4)
+```
+# Hierarchical Universal Thermal Performance Curves
+
+## Introduction
+
+A while back (around May 2025) I got interested in thermal performance curves based on a presentation at a SEEC symposium by a student of Prof. Susana Clusella-Trullas's. The student had fit a plethora of models, both convenetional and otherwise, and found it difficult to decide which was "best". Much reference was made to a paper claiming that there was no "one size fits all" model for this sort of data. 
+
+A bit of background: thermal performance curves (TPCs) are descriptions of how well organisms perform under a range of temperatures. This is usually assessed experimentally (though in some cases one could gather observational data). Performance is a relatively vague concept, but it is intended to serve as an indicator of fitness potential. As such, it can be measured in a number of ways, many of which are particular to the organism under study, and most of which are some kind of rate. In plants, one might measure growth or photosynthetic rate; in bacteria, one might measure colony growth; in animals, movement speed is frequently used. 
+
+It occurred to me that many TPC experiments produce data with a hierarchical structure. For example, in many cases the same individual is measured across the full range of assay temperatures. In other instances, one might have several blocks representing each temperature treatment, with a number of individuals measured in each. Such structure should be taken into account when modelling. To my surprise, however, according to my (admittedly somewhat shallow) research, this did not appear to be the norm. Instead, when multiple measurements are taken per individual the standard approach appears to be to fit a separate model to each individual and discard individuals with "too few data points" or for which the model fails to converge. And when individuals are only measured once but multiple individuals are measured per treatment, their performance values are often averaged as a way of accounting for uneven sampling effort.
+
+### A bit about the models
+
+Many mathematical models have been proposed to describe the types of TPCs typically encountered. Most of them follow the same basic form: at low temperatures, performance is poor; then, it ramps up exponentially,  plateauing just before reaching a peak; finally performance takes a nose-dive, steeply dropping before reaching zero at the critical upper thermal limit. 
+
+
+
+```{r Introduction}
+library(rTPC)
+library(tidyverse)
+library(ggrepel)
+theme_set(theme_bw())
+
+# Prepare for Stan and brms 
+library(brms)
+options(brms.backend = "cmdstanr")
+library(marginaleffects)
+library(ggdist)
+```
+
+## Section 1
+
+```{r Section-1}
+## get curve data
+data("chlorella_tpc")
+
+d_hier <- filter(
+  chlorella_tpc,
+  process == 'adaptation',
+  growth_temp %in% c(27, 30, 33),
+  flux == 'photosynthesis'
+) %>%
+  mutate(curve_id = as.factor(curve_id)) %>%
+  as_tibble()
+d_hier
+
+d_hier %>%
+  ggplot() +
+  geom_point(aes(temp, rate, size = growth_temp)) +
+  geom_line(aes(temp, rate, group = curve_id)) +
+  theme_bw(base_size = 12) +
+  theme(
+    strip.text = element_text(hjust = 0),
+    strip.background = element_blank()
+  ) +
+  labs(
+    x = 'Temperature (ºC)',
+    y = 'Metabolic rate',
+    title = 'Photosynthesis rates across temperatures'
+  ) +
+  geom_hline(aes(yintercept = 0), linetype = 2)
+```
+
+## Section 2
+
+```{r Section-2}
+# Model -------------------------------------------------------------------
+
+# See https://github.com/AndrewLJackson/UTPC-paper/blob/main/import-fit-merge.Rmd#L132C9-L132C68
+
+# performance ~ (yopt * exp( (ta - Topt)/Delta ) * (1 - (ta - Topt)/Delta))
+# ta = temp in Celcius!
+
+bform <- bf(
+  rate ~ yopt * exp((temp - Topt) / Delta) * (1 - (temp - Topt) / Delta),
+  yopt ~ 1 + (1 | curve_id),
+  Topt ~ 1 + (1 | curve_id),
+  Delta ~ 1 + (1 | curve_id),
+  nl = TRUE
+)
+
+priors <- c(
+  prior(normal(2, 0.25), lb = 0, nlpar = "yopt"),
+  prior(normal(0, 3), lb = 0, ub = 20, nlpar = "Delta"),
+  prior(normal(40, 3), lb = 30, ub = 50, nlpar = "Topt"),
+  prior(normal(0, 0.3), lb = 0, class = "sd", nlpar = "yopt"),
+  prior(std_normal(), lb = 0, class = "sd", nlpar = "Topt"),
+  prior(normal(0, 0.3), lb = 0, class = "sd", nlpar = "Delta"),
+  prior(normal(0, 0.1), lb = 0, class = "sigma")
+)
+
+
+m_UTPC <- brm(
+  bform,
+  family = brmsfamily("gaussian"),
+  data = d_hier,
+  prior = priors,
+  # sample_prior = "only",
+  control = list(adapt_delta = 0.9, max_treedepth = 12),
+  cores = 4,
+  iter = 1000,
+  backend = "cmdstanr",
+  seed = 42
+)
+m_UTPC
+plot(
+  conditional_effects(m_UTPC, effects = "temp", spaghetti = T, ndraws = 500),
+  points = T
+)
+
+plot(m_UTPC, ask = F)
+pp_check(m_UTPC, ndraws = 100)
+
+mcmc_plot(m_UTPC, type = "nuts_treedepth")
+mcmc_plot(m_UTPC, type = "nuts_acceptance")
+mcmc_plot(m_UTPC, type = "nuts_stepsize")
+```
+
+## Section 3
+
+```{r Section-3}
+
+```
+
