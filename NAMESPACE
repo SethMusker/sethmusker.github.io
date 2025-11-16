@@ -1,0 +1,2 @@
+export(new_post)
+export(finalise_post)

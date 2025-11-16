@@ -1,3 +1,23 @@
+# My Website
+
+## Notes to self about usage:
+
+1. Open `sethmusker.github.io.Rproj`
+2. If not already done, install the local "blogtools" package by running remotes::install_local(".")
+3. To start a new post, go to `addins` in Rstudio and select New Post, then type in the name of the post
+4. A `.Rmd` file with a slugified name will be created in `_drafts` 
+5. Images will be placed in `assets/img` in the *parent folder*
+6. To preview the draft, knit the document and run `bundle exec jekyll serve --drafts`
+7. To finalise, copy the knitted markdown file into _posts. 
+    - run `bundle exec jekyll serve` to preview the website
+8. Push changes to github to update the website online.
+
+
+
+--------------------
+
+
+
 # Chirpy Starter
 
 [![Gem Version](https://img.shields.io/gem/v/jekyll-theme-chirpy)][gem]&nbsp;

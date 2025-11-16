@@ -1,0 +1,20 @@
+[
+  {
+    "name": "New Post",
+    "description": "Create a new RMarkdown draft for a Jekyll post",
+    "binding": "new_post",
+    "interactive": true
+  },
+  {
+    "name": "Preview Draft",
+    "description": "Preview the draft in the website",
+    "binding": "preview_draft",
+    "interactive": true
+  },
+  {
+    "name": "Finalise Post",
+    "description": "Move knitted Markdown + images into _posts/",
+    "binding": "finalise_post",
+    "interactive": true
+  }
+]

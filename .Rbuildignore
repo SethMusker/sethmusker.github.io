@@ -1,0 +1,7 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^_drafts/.*_files/
+^_drafts/.*\.md$
+^_drafts/.*\.html$
+^_posts/.*
+^\.jekyll-cache/.*

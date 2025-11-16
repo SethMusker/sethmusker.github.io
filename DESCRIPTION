@@ -1,0 +1,9 @@
+Package: blogtools
+Title: Blog Tools for Jekyll
+Version: 0.0.1
+Authors@R: person("Seth", "Musker", role = c("aut", "cre", "maintainer"), email="sethmusker@gmail.com")
+Description: Convenience functions and RStudio addins for creating and finalizing Jekyll posts.
+License: MIT
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.1

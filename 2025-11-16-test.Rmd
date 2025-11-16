@@ -1,0 +1,20 @@
+---
+title: "test"
+date: 2025-11-16
+categories: []
+tags: []
+output:
+  md_document:
+    variant: gfm
+    preserve_yaml: true
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(fig.path = 'assets/img/test//', fig.width = 6, fig.height = 4)
+```
+
+# Introduction
+
+Write your post content here.
+

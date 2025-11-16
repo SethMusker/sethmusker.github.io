@@ -1,0 +1,42 @@
+---
+title: "again again"
+date: 2025-11-16
+categories: []
+tags: []
+output:
+  md_document:
+    variant: gfm
+    preserve_yaml: true
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(fig.path = '../assets/img/2025-11-16-again-again/', fig.width = 6, fig.height = 4)
+```
+# again again
+
+## Introduction
+
+```{r Introduction}
+library(tidyverse)
+pairs(cars)
+```
+
+## Section 1
+
+```{r Section-1}
+library(tidyverse)
+```
+
+## Section 2
+
+```{r Section-2}
+library(tidyverse)
+```
+
+## Section 3
+
+```{r Section-3}
+library(tidyverse)
+```
+

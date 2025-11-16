@@ -1,0 +1,15 @@
+Name: New Post
+Description: Create a new Jekyll draft
+Binding: new_post
+Interactive: false
+
+Name: Preview Draft
+Description: Knit and preview draft using Jekyll
+Binding: preview_draft
+Interactive: false
+
+Name: Finalise Post
+Description: Move knitted post + figures into place
+Binding: finalise_post
+Interactive: false
+

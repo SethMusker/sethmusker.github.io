@@ -1,0 +1,336 @@
+---
+title: "Hierarchical Universal Thermal Performance Curves"
+date: 2025-11-15
+categories: [statistics]
+tags: [statistics, Bayes, hierarchical models, brms, non-linear]
+output:
+  md_document:
+    variant: gfm
+    preserve_yaml: true
+---
+
+# Hierarchical Universal Thermal Performance Curves
+
+Write your post here.
+
+```{r}
+## load packages ----
+library(rTPC)
+library(tidyverse)
+library(ggrepel)
+theme_set(theme_bw())
+
+## get curve data ----
+data("chlorella_tpc")
+
+# Prepare for Stan and brms -----------------------------------------------
+library(brms)
+library(marginaleffects)
+library(ggdist)
+```
+
+## Standard parameterisation.
+
+```{r}
+
+d_hier <- filter(
+  chlorella_tpc,
+  process == 'adaptation',
+  growth_temp %in% c(27,30,33), 
+  flux == 'photosynthesis'
+) %>% 
+  mutate(curve_id=as.factor(curve_id)) %>% 
+  as_tibble()
+d_hier
+
+d_hier %>%
+  ggplot() +
+  geom_point(aes(temp, rate,size=growth_temp), 
+              fill = 'green4') +
+  geom_line(aes(temp, rate, group=curve_id))+
+  theme_bw(base_size = 12) +
+  theme(strip.text = element_text(hjust = 0),
+        strip.background = element_blank()) +
+  labs(x ='Temperature (ºC)',
+       y = 'Metabolic rate',
+       title = 'Photosynthesis rates across temperatures') +
+  geom_hline(aes(yintercept = 0), linetype = 2)
+
+
+
+# Model -------------------------------------------------------------------
+
+# See https://github.com/AndrewLJackson/UTPC-paper/blob/main/import-fit-merge.Rmd#L132C9-L132C68
+
+# performance ~ (yopt * exp( (ta - Topt) / Delta) * (1 - (ta - Topt)/Delta))
+# ta = temp in Celcius! 
+
+
+bform <- bf(
+  rate  ~ yopt * exp((temp - Topt) / Delta ) * (1 - (temp - Topt) / Delta),
+  yopt ~ 1 + (1 | curve_id),
+  Topt ~ 1 + (1 | curve_id),
+  Delta ~ 1 + (1 | curve_id),
+  nl = TRUE
+)
+
+priors <- c(
+  prior(normal(2,0.25), lb = 0, nlpar = "yopt"),
+  prior(normal(0,3), lb = 0, ub = 20, nlpar = "Delta"),
+  prior(normal(40, 3),lb=30,ub=50, nlpar = "Topt"),
+  prior(normal(0,0.3),lb=0,class="sd",nlpar="yopt"),
+  prior(std_normal(),lb=0,class="sd",nlpar="Topt"),
+  prior(normal(0,0.3),lb=0,class="sd",nlpar="Delta"),
+  prior(normal(0,0.1),lb=0,class="sigma")
+  # prior(normal(0,0.1),lb=0,class="shape")
+)
+
+
+m_UTPC <- brm(
+  bform,
+  family = brmsfamily("gaussian"),
+  data = d_hier,
+  prior = priors,
+  # sample_prior = "only",
+  control = list(adapt_delta = 0.9, max_treedepth = 12),
+  cores = 4,
+  iter = 1000,
+  backend = "cmdstanr",
+  seed=42
+)
+m_UTPC
+plot(
+  conditional_effects(m_UTPC,effects = "temp",spaghetti = T,ndraws=500),
+  points=T
+  )
+
+plot(m_UTPC,ask=F)
+pp_check(m_UTPC,ndraws = 100)
+
+mcmc_plot(m_UTPC,type="nuts_treedepth")
+mcmc_plot(m_UTPC,type="nuts_acceptance")
+mcmc_plot(m_UTPC,type="nuts_stepsize")
+
+```
+
+## Lognormal parameterisation
+
+```{r}
+
+# Logarithmic form --------------------------------------------------------
+d_hier %>%
+  ggplot() +
+  geom_point(aes(temp, log(rate),size=growth_temp), 
+             fill = 'green4') +
+  geom_line(aes(temp, log(rate), group=curve_id))+
+  theme_bw(base_size = 12) +
+  theme(strip.text = element_text(hjust = 0),
+        strip.background = element_blank()) +
+  labs(x ='Temperature (ºC)',
+       y = 'Metabolic rate',
+       title = 'Photosynthesis rates across temperatures') +
+  geom_hline(aes(yintercept = 0), linetype = 2)
+
+
+# We log-transform the rhs and model the response as lognormal...
+bformlog <- bf(
+  rate ~ log(yopt) + (temp - Topt) / Delta  + log(1 - (temp - Topt) / Delta),
+  yopt ~ 1 + (1 | curve_id),
+  Topt ~ 1 + (1 | curve_id),
+  Delta ~ 1 + (1 | curve_id),
+  nl = TRUE
+)
+
+# Use exactly the same priors (yay)
+priors <- c(
+  prior(normal(2,0.25), lb = 0, nlpar = "yopt"),
+  prior(normal(0,3), lb = 0, ub = 20, nlpar = "Delta"),
+  prior(normal(40, 3), lb = 30, ub = 50, nlpar = "Topt"),
+  prior(normal(0,0.3),lb=0,class="sd",nlpar="yopt"),
+  prior(std_normal(),lb=0,class="sd",nlpar="Topt"),
+  prior(normal(0,0.3),lb=0,class="sd",nlpar="Delta"),
+  prior(normal(0,0.1),lb=0,class="sigma")
+)
+
+m_UTPC_lognormal <- brm(
+  bformlog,
+  family = brmsfamily("lognormal"),
+  data = d_hier,
+  prior = priors,
+  # sample_prior = "only",
+  control = list(adapt_delta = 0.9, max_treedepth = 12),
+  cores = 4,
+  iter = 1000,
+  backend = "cmdstanr",
+  seed=42
+)
+m_UTPC_lognormal
+plot(m_UTPC_lognormal,ask=F)
+plot(
+  conditional_effects(m_UTPC_lognormal,effects = "temp",spaghetti = T,ndraws=500),
+  points=T
+)
+
+```
+
+## Add complexity
+
+```{r}
+
+## Does yopt depend on acclimation temp? ----
+d_hier <- d_hier %>% mutate(growth_temp_fct = as.factor(growth_temp)) 
+
+d_hier %>% select(growth_temp,process) %>% distinct()
+
+bformlog_1.1 <- bf(
+  rate ~ log(yopt) + (temp - Topt) / Delta  + log(1 - (temp - Topt) / Delta),
+  yopt ~ 0 + (1 | gr(curve_id,by=growth_temp_fct)) + growth_temp_fct,
+  Topt ~ 1 + (1 | curve_id),
+  Delta ~ 1 + (1 | curve_id),
+  nl = TRUE
+)
+
+# Use exactly the same priors (yay)
+
+m_UTPC_lognormal_1.1 <- brm(
+  bformlog_1.1,
+  family = brmsfamily("lognormal"),
+  data = d_hier,
+  prior = priors,
+  # sample_prior = "only",
+  control = list(adapt_delta = 0.95, max_treedepth = 12),
+  cores = 4,
+  iter = 1000,
+  backend = "cmdstanr",
+  seed=42
+)
+m_UTPC_lognormal_1.1$prior
+m_UTPC_lognormal_1.1
+plot(m_UTPC_lognormal_1.1,ask=F)
+pp_check(m_UTPC_lognormal_1.1,ndraws = 100)
+plot_predictions(
+  m_UTPC_lognormal_1.1,
+  condition = c("temp", "growth_temp_fct"),
+  points = .5,
+  re_formula = NA
+)
+
+plot_predictions(
+  m_UTPC_lognormal_1.1,
+  condition = c("growth_temp_fct"),
+  nlpar="yopt",
+  points = .5,
+  re_formula = NA
+)
+
+## Does Topt depend on acclimation temp? ----
+
+bformlog_1.2 <- bf(
+  rate ~ log(yopt) + (temp - Topt) / Delta  + log(1 - (temp - Topt) / Delta),
+  yopt ~ 0 + (1 | gr(curve_id,by=growth_temp_fct)) + growth_temp_fct,
+  Topt ~ 0 + (1 | gr(curve_id,by=growth_temp_fct)) + growth_temp_fct,
+  Delta ~ 1 + (1 | curve_id),
+  nl = TRUE
+)
+
+m_UTPC_lognormal_1.2 <- brm(
+  bformlog_1.2,
+  family = brmsfamily("lognormal"),
+  data = d_hier,
+  prior = priors,
+  # sample_prior = "only",
+  control = list(adapt_delta = 0.99, max_treedepth = 12),
+  cores = 4,
+  iter = 1000,
+  backend = "cmdstanr",
+  seed=42
+)
+m_UTPC_lognormal_1.2
+pp_check(m_UTPC_lognormal_1.2,ndraws = 100)
+plot_predictions(
+  m_UTPC_lognormal_1.2,
+  condition = c("temp", "growth_temp_fct"),
+  points = .5,
+  re_formula = NA
+)
+
+plot_predictions(
+  m_UTPC_lognormal_1.2,
+  condition = c("growth_temp_fct"),
+  nlpar="yopt",
+  points = .5,
+  re_formula = NA
+)
+plot_predictions(
+  m_UTPC_lognormal_1.2,
+  condition = c("growth_temp_fct"),
+  nlpar="Topt",
+  points = .5,
+  re_formula = NA
+)
+
+## Does Delta also (not) depend on acclimation temp? ----
+
+bformlog_1.3 <- bf(
+  rate ~ log(yopt) + (temp - Topt) / Delta + log(1 - (temp - Topt) / Delta),
+  yopt ~ 0 + (1 | gr(curve_id,by=growth_temp_fct)) + growth_temp_fct,
+  Topt ~ 0 + (1 | gr(curve_id,by=growth_temp_fct)) + growth_temp_fct,
+  Delta ~ 0 + (1 | gr(curve_id,by=growth_temp_fct)) + growth_temp_fct,
+  nl = TRUE
+)
+
+m_UTPC_lognormal_1.3 <- brm(
+  bformlog_1.3,
+  family = brmsfamily("lognormal"),
+  data = d_hier,
+  prior = priors,
+  # sample_prior = "only",
+  control = list(adapt_delta = 0.99, max_treedepth = 12),
+  cores = 4,
+  iter = 2000,
+  backend = "cmdstanr",
+  seed=42
+)
+m_UTPC_lognormal_1.3
+pp_check(m_UTPC_lognormal_1.3,ndraws = 100)
+plot_predictions(
+  m_UTPC_lognormal_1.3,
+  condition = c("temp", "growth_temp_fct"),
+  points = .5,
+  re_formula = NA
+)
+
+plot_predictions(
+  m_UTPC_lognormal_1.3,
+  condition = c("growth_temp_fct"),
+  nlpar="yopt",
+  points = .5,
+  re_formula = NA
+)+ylab("yopt")
+plot_predictions(
+  m_UTPC_lognormal_1.3,
+  condition = c("growth_temp_fct"),
+  nlpar="Topt",
+  points = .5,
+  re_formula = NA
+)+ylab("Topt")
+plot_predictions(
+  m_UTPC_lognormal_1.3,
+  condition = c("growth_temp_fct"),
+  nlpar="Delta",
+  points = .5,
+  re_formula = NA
+)+ylab("Delta")
+
+```
+
+## Compare the models
+
+```{r}
+loo(
+  m_UTPC_lognormal,
+  m_UTPC_lognormal_1.1,
+  m_UTPC_lognormal_1.2,
+  m_UTPC_lognormal_1.3
+)
+```
