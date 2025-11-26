@@ -10,7 +10,7 @@
 6. To preview the draft, knit the document and run `bundle exec jekyll serve --drafts`
 7. To finalise, copy the knitted markdown file into _posts. 
     - run `bundle exec jekyll serve` to preview the website
-8. Push changes to github to update the website online.
+8. Commit and push changes to github to update the website online.
 
 
 

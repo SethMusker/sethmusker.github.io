@@ -41,8 +41,9 @@ new_post <- function(title = NULL,
     paste0("tags: [", paste(tags %||% "", collapse=", "), "]"),
     "output:",
     "  md_document:",
-    "    variant: gfm",       # GitHub-style markdown (works with Jekyll)
+    "    variant: markdown",       # GitHub-style markdown (works with Jekyll)
     "    preserve_yaml: true",# Keep YAML at top when knitting
+    "math: true",
     "---",
     ""
   )
@@ -69,19 +70,19 @@ new_post <- function(title = NULL,
     "## Section 1",
     "",
     "```{r Section-1}",
-    "library(tidyverse)",
+    "",
     "```",
     "",
     "## Section 2",
     "",
     "```{r Section-2}",
-    "library(tidyverse)",
+    "",
     "```",
     "",
     "## Section 3",
     "",
     "```{r Section-3}",
-    "library(tidyverse)",
+    "",
     "```",
     ""
   )

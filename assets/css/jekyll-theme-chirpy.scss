@@ -1,0 +1,20 @@
+---
+---
+
+@use "main";
+
+/* Wider code blocks */
+.post-content pre,
+.post-content .highlight {
+  max-width: 100% !important;
+}
+
+@media (min-width: 768px) {
+  .post-content pre,
+  .post-content .highlight {
+    margin-left: -2rem;
+    margin-right: -2rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}

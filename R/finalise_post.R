@@ -44,7 +44,7 @@ finalise_post <- function(title = NULL,
   # dir.create(assets_dir, showWarnings = FALSE)
   
   # Move the markdown into _posts/
-  file.rename(md_src, md_dst)
+  file.copy(md_src, md_dst)
   
   # Move figures (if any)
   # if (dir.exists(fig_src_dir)) {

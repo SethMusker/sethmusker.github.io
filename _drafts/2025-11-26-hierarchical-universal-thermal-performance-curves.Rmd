@@ -1,12 +1,13 @@
 ---
 title: "Hierarchical Universal Thermal Performance Curves"
-date: 2025-11-16
+date: 2025-11-26
 categories: [statistics]
 tags: [statistics, Bayes, hierarchical models, brms, non-linear]
 output:
   md_document:
-    variant: gfm
+    variant: markdown
     preserve_yaml: true
+math: true
 ---
 
 ```{r setup, include=FALSE}
@@ -216,7 +217,8 @@ bayesian_model_weighted <- brm(
   iter = 4000,
   warmup = 3000,
   refresh = 1000,
-  backend = "cmdstanr"
+  backend = "cmdstanr",
+  file = ".brms/pawar-weighted"
 )
 summary(bayesian_model_weighted)
 
@@ -224,7 +226,7 @@ summary(bayesian_model_weighted)
 
 ### Let's compare the models
 
-```{r}
+```{r model-compare}
 nd <- data.frame(
   temp=seq(15,50,by=0.1)
 )
@@ -341,7 +343,8 @@ bayesian_model_hier_topt <- brm(
   iter = 4000,
   warmup = 3000,
   refresh = 1000,
-  backend = "cmdstanr"
+  backend = "cmdstanr",
+  file = ".brms/pawar-h1"
 )
 summary(bayesian_model_hier_topt)
 
@@ -374,7 +377,8 @@ bayesian_model_hier_topt_eh <- brm(
   iter = 4000,
   warmup = 3000,
   refresh = 1000,
-  backend = "cmdstanr"
+  backend = "cmdstanr",
+  file = ".brms/pawar-h2"
 )
 summary(bayesian_model_hier_topt_eh)
 
@@ -451,11 +455,13 @@ m_UTPC <- brm(
   family = brmsfamily("gaussian"),
   data = d_hier,
   prior = priors,
-  # sample_prior = "only",
-  control = list(adapt_delta = 0.9, max_treedepth = 12),
+  control = list(adapt_delta = 0.99, max_treedepth = 12),
   cores = 4,
-  iter = 1000,
-  backend = "cmdstanr"
+  iter = 2000,
+  warmup = 1500,
+  refresh = 500,
+  backend = "cmdstanr",
+  file = ".brms/utpc-1"
 )
 m_UTPC
 
@@ -526,20 +532,23 @@ m_UTPC_3temp <- brm(
   iter = 2000,
   warmup = 1500,
   refresh = 500,
-  backend = "cmdstanr"
+  backend = "cmdstanr",
+  file = ".brms/utpc-2",
+  seed = 1234
 )
 m_UTPC_3temp
 ```
 
 #### Reparameterise as log-normal
 
-This model can have some trouble sampling, so I tried reformulating it in logarithmic form. The formula then becomes:
+This model sometimes has trouble sampling, depending on the random seed, so I tried reformulating it in logarithmic form. The formula then becomes:
 
 $$
 log\mathrm{(rate)} = log(y_{\mathrm{opt}}) +
 \left(\frac{T - T_{\mathrm{opt}}}{\Delta}\right) +
 log\left(1 - \frac{T - T_{\mathrm{opt}}}{\Delta}\right)
-$$
+$$ 
+
 And we just need to change the family to lognormal. Everything else remains unchanged, even the priors!
 
 ```{r utpc-lognormal}
@@ -561,7 +570,9 @@ m_UTPC_3temp_lognormal <- brm(
   iter = 2000,
   warmup = 1500,
   refresh = 500,
-  backend = "cmdstanr"
+  backend = "cmdstanr",
+  file = ".brms/utpc-2-log",
+  seed = 123
 )
 m_UTPC_3temp_lognormal
 ```
@@ -598,7 +609,7 @@ patchwork::wrap_plots(yopt_plot,Topt_plot,Delta_plot,axes = "collect")
 
 ```
 
-Remarkably, the prediction seems to be right. The colonies grown at 33 degrees for ~ 100 generations had a higher thermal optimum (by around 0.7 ${^\circ}C$) but lower $Delta$ (by around 0.9 ${^\circ}C$) than those grown at lower temperatures, implying that the upper thermal limit didn't change, or may have even declined...
+Remarkably, the prediction seems to be right. The colonies grown at 33 degrees for \~ 100 generations had a higher thermal optimum (by around 0.7 ${^\circ}C$) but lower $Delta$ (by around 0.9 ${^\circ}C$) than those grown at lower temperatures, implying that the upper thermal limit didn't change, or may have even declined...
 
 Finally, let's look at some predictions.
 
@@ -612,7 +623,6 @@ plot_predictions(
   labs(fill="Growth\ntemperature",colour="Growth\ntemperature",
        x="Temperature",y="Metabolic rate")
 ```
-
 
 ## References
 
